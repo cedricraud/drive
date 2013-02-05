@@ -58,6 +58,9 @@
         -webkit-font-smoothing: antialiased;
         opacity: 0;
       }
+      #directionsPanel td{
+        min-width: 20px;
+      }
       #move {
         display: none;
       }
@@ -136,7 +139,7 @@
       <button class="btn btn-large" id="stopMoving" onclick="panorama.stopMoving()" style="display: none"><i class="icon-road"></i>Pause</button>
       <button class="btn btn-large" id="move" onclick="panorama.move(true)"><i class="icon-chevron-up"></i>Move</button>
     </div>
-    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=false"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=false&language=en-US"></script>
     <script>
       var apiUrl = 'http://maps.googleapis.com/maps/api/streetview';
       var apiUrlParams = 'location={lat},{lng}&heading={heading}&size={size}&fov=110&sensor=false&key={key}';
@@ -174,8 +177,9 @@
         map = new google.maps.Map(document.getElementById('map'), mapOptions);
         panorama = new Driver(map, panoEnabled ? panoramaDisplay : null);
 
-        if (location.hash.indexOf('➔') == -1) location.hash = "pont neuf, paris ➔ concorde, paris";
+        if (location.hash.indexOf('➔') == -1) location.hash = "5th av, ny ➔ w 86th, ny";
         var addrs = location.hash.substring(1).split(' ➔ ');
+        if (addrs.length != 2) addrs = location.hash.substring(1).split(' %94 ');
         if (addrs.length == 2) {
           document.getElementById('startAddress').value = addrs[0];
           document.getElementById('endAddress').value = addrs[1];
