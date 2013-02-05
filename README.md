@@ -3,6 +3,10 @@
 Drive is an [node](http://nodejs.org) web app to explore the world from the couch.
 Choose an start address, a destination and press Drive: the app will fetch the Google Street View panoramas for you and generate an animated trip.
 
+![Screenshot](https://raw.github.com/cedricraud/Drive/master/assets/screen.png)
+
+You can try the app [here](http://drive.spyc.am).
+
 ## How to install
 
 Required binaries:
