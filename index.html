@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Drive ~ The Roadtrip Simulator</title>
+    <meta property="og:url" content="http://drive.spyc.am" />
+    <meta property="og:image" content="http://drive.spyc.am/assets/thumb.png" />
+    <meta property="og:description" content="Build gif animations from Google Street View" />
+    <link rel="icon" href="assets/favicon.png">
+    <link href="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.2.1/css/bootstrap.no-responsive.no-icons.min.css" rel="stylesheet">
+    <link href="http://netdna.bootstrapcdn.com/font-awesome/2.0/css/font-awesome.css" rel="stylesheet">
+    <style>
+      @import url(http://fonts.googleapis.com/css?family=Oleo+Script+Swash+Caps);
+
+      body {
+        text-align: center;
+        font-family: Helvetica;
+        font-size: 11pt;
+        background-image: url('assets/noise.png');
+      }
+      h1 {
+        font-family: 'Oleo Script Swash Caps', cursive;
+        font-size: 72pt;
+        margin: 60px auto 40px -740px;
+        text-shadow: 1px 1px 7px rgba(0, 0, 0, 0.3);
+      }
+      #music {
+        position: absolute;
+        top: 38px;
+        margin-left: 7px;
+        color: black;
+        font-size: 15pt;
+      }
+      #address {
+        text-align: center;
+      }
+      #map, #pano, #address, #command {
+        margin: 15px auto 0 auto;
+      }
+      #pano, #map {
+        width: 1024px;
+        height: 600px;
+        border: 10px solid white;
+        box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.1)
+      }
+      #directionsPanel {
+        cursor: default;
+        position: absolute;
+        left: 50%;
+        width: 300px;
+        top: 165px;
+        margin-left: 212px;
+        height: 600px;
+        background-color: rgba(255, 255, 255, 0.9);
+        box-shadow: -1px 0px 2px rgba(0, 0, 0, 0.2);
+        overflow: scroll;
+        -webkit-transition: opacity 0.5s ease-out !important;
+        -webkit-font-smoothing: antialiased;
+        opacity: 0;
+      }
+      #move {
+        display: none;
+      }
+      #pano {
+        display: none;
+      }
+      #url {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 50%;
+        display: inline-block;
+      }
+      #startRecording {
+        opacity: 0;
+      }
+      #startRecording, #stopRecording, #loading {
+        height: 43px;
+        margin: -5px auto auto 15px;
+        border-radius: 4px;
+      }
+      form {
+        margin: -75px auto 35px 285px;
+      }
+      form * {
+        display: inline-block;
+        margin: 5px;
+      }
+      .debug #move {
+        display: inline-block;
+      }
+      button {
+        margin: auto 5px;
+        -webkit-transition: opacity 0.5s ease-out !important;
+        -webkit-font-smoothing: antialiased;
+      }
+      button i {
+        margin-right: 7px;
+      }
+      form input {
+        background-size: 100% !important;
+        background-position-y: -50px !important;
+        color: black !important;
+        text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1) !important;
+        border-radius: 0 !important;
+        border: 6px solid white !important;
+        box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.1) !important;
+        
+      }
+      .preview {
+        padding-top: 100px !important;
+        color: white !important;
+        text-shadow: 0 1px 5px black !important;
+        -webkit-transition: all 100ms ease-out !important;
+      }
+
+    </style>
+  </head>
+  <body onload="initialize()">
+    <h1>Drive <a id="music" href="https://w.soundcloud.com/player/?url=http%3A%2F%2Fapi.soundcloud.com%2Ftracks%2F1917917&color=ff6600&auto_play=true&show_artwork=true" target="_blank"><i class="icon-music"></i></a></h1>
+    <form id="form" method="post" action="create">
+      <input type="hidden" id="records" name="records">
+      <label for="startAddress">From </label>
+      <input id="startAddress" type="text" placeholder="Start" tabindex="1" onkeydown="lookdown(event)">
+      <label for="endAddress"> to </label>
+      <input id="endAddress" type="text" placeholder="End" tabindex="2" onkeydown="lookdown(event, true)">
+      <button type="button" class="btn btn-large btn-info" id="startRecording" tabindex="3" onclick="panorama.startRecording()"><i class="icon-dashboard"></i>Start</button>
+      <button type="button" class="btn btn-large btn-info" id="stopRecording" onclick="panorama.stopRecording()" style="display:none"><i class="icon-dashboard"></i>Stop</button>
+      <button type="button" class="btn btn-large btn-info disabled" id="loading" style="display: none"><i class="icon-magic"></i>Building gif...</button>
+    </form>
+    <div id="map"></div>
+    <div id="directionsPanel"></div>
+    <div id="pano"></div>
+    <div id="command">
+      <button class="btn btn-large" id="startMoving" onclick="panorama.startMoving()" style="display: none"><i class="icon-road"></i>Drive (debug)</button>
+      <button class="btn btn-large" id="stopMoving" onclick="panorama.stopMoving()" style="display: none"><i class="icon-road"></i>Pause</button>
+      <button class="btn btn-large" id="move" onclick="panorama.move(true)"><i class="icon-chevron-up"></i>Move</button>
+    </div>
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=false"></script>
+    <script>
+      var apiUrl = 'http://maps.googleapis.com/maps/api/streetview';
+      var apiUrlParams = 'location={lat},{lng}&heading={heading}&size={size}&fov=110&sensor=false&key={key}';
+      var geocoder, map, panorama, panoramaDisplay, url;
+      var moving = false;
+      var recording = false;
+      var delay = 1000;
+      var heading = 0;
+      var debug = location.href.indexOf('debug') !== -1;
+      var panoEnabled = location.href.indexOf('pano') !== -1;
+
+      function initialize() {
+        var panoramaOptions = {
+          pov: {
+            heading: 352,
+            pitch: 3,
+            zoom: 1
+          },
+          visible: true,
+          panControl: false,
+          linksControl: debug,
+          zoomControl: false,
+          addressControl: debug,
+          clickToGo: true
+        };
+        panoramaDisplay = new google.maps.StreetViewPanorama(document.getElementById('pano'), panoramaOptions);
+
+        var mapOptions = {
+          zoom: 2,//16
+          mapTypeControl: false,
+          disableDefaultUI: true,
+          mapTypeId: google.maps.MapTypeId.ROADMAP,
+          center: new google.maps.LatLng(46.55886,-6.503906)
+        };
+        map = new google.maps.Map(document.getElementById('map'), mapOptions);
+        panorama = new Driver(map, panoEnabled ? panoramaDisplay : null);
+
+        if (location.hash.indexOf('➔') == -1) location.hash = "pont neuf, paris ➔ concorde, paris";
+        var addrs = location.hash.substring(1).split(' ➔ ');
+        if (addrs.length == 2) {
+          document.getElementById('startAddress').value = addrs[0];
+          document.getElementById('endAddress').value = addrs[1];
+          lookup(false, function() { lookup(true) });
+        }
+
+        if (debug) document.body.className = 'debug';
+        if (panoEnabled) document.getElementById('pano').style.display = 'block';
+    }
+
+    function lookup(end, callback) {
+      var address = document.getElementById(end ? 'endAddress' : 'startAddress').value;
+      if (end)
+        location.hash = document.getElementById('startAddress').value + ' ➔ ' + document.getElementById('endAddress').value;
+      if (!geocoder) geocoder = new google.maps.Geocoder();
+      geocoder.geocode({'address': address}, function(results, status) {
+        if (status == google.maps.GeocoderStatus.OK) {
+          var location = results[0].geometry.location;
+          location = new google.maps.LatLng(location.lat(), location.lng());
+          if (end)
+            panorama.setEndPosition(location);
+          else
+            panorama.setStartPosition(location, callback);
+        } else {
+          alert('Geocode was not successful for the following reason: ' + status);
+        }
+      });
+    }
+
+    function lookdown(e, end) {
+      if (e.keyCode == 13 || e.keyCode == 9) {
+        if (!end && e.keyCode == 13) document.getElementById('endAddress').focus();
+        lookup(end);
+      } 
+      return true;
+    }
+
+    function Driver(map, pano) {
+      var self = this;
+      var streetviewService,directionsService, directionsDisplay;
+      var pov = { heading: 352, pitch: 3, zoom: 1 };
+      var nextHeading = 0;
+      var smoothHeading = 0;
+      var position = new google.maps.LatLng();
+      var links = [];
+      var startPosition, endPosition, lastPosition, marker, marker1, marker2;
+      var markers = [];
+      var steps = [];
+      var records = [];
+      var moving = false, recording = false;
+      var panoHistory = {};
+      var safeJump = {};
+
+      // Panorama
+      function getClosestPano(latLng, callback) {
+        streetviewService.getPanoramaByLocation(latLng, 50, function(data) {
+          callback(data, data && data.location && data.location.latLng);
+        });
+      }
+
+    function posmod(value, mod) {
+        value = value  % mod;
+        if (value < 0) value += mod;
+        return value;
+      };
+
+      function getUrl(size, pos, h) { 
+        var key = 'AIzaSyB6MKMJ9iXY3G4hcv9Oixt0FedLlCdxHeE';
+        var p = pos ? pos : position;
+        var lat = p.lat();
+        var lng = p.lng();
+        var s = size ? size : '400x200';
+        //smoothHeading = Math.floor(pov.heading * 0.7 + smoothHeading * 0.3) + (h ? h : 0);
+        smoothHeading = pov.heading + (h ? h : 0);
+        var params = apiUrlParams.replace('{lat}', lat)
+                                .replace('{lng}', lng)
+                                .replace('{heading}', smoothHeading)
+                                .replace('{size}', s)
+                                .replace('{key}', key);
+        return apiUrl + '?' + params;
+      }
+
+      function record() {
+        var url = getUrl();
+        records.push(url);
+      }
+
+      function updateNextHeading() {
+        var step = 0;
+        var minDistance = 90000;
+
+        for(var i = 0; i < steps.length; i++) {
+          var distance = google.maps.geometry.spherical.computeDistanceBetween(position, steps[i]);
+          if (distance < minDistance) {
+            step = i;
+            minDistance = distance;
+            if (i + 1 < steps.length) {
+              if (debug) {
+                marker1.setPosition(steps[i]);
+                marker2.setPosition(steps[i + 1]);
+              }
+              nextHeading = google.maps.geometry.spherical.computeHeading(steps[i], steps[i + 1]);
+              safeJump = steps[i + 1];
+            }
+          }
+        }
+        for (var i = 0; i < step; i++)
+          steps.shift();
+        return step;
+      }
+
+      function applyPano(data) {
+        links = data.links;
+        position = data.location.latLng;
+        if (pano) pano.setPosition(position);
+        //if (links.length > 2)
+         updateNextHeading();
+        if (recording) {
+          record();
+
+          if (!lastPosition || google.maps.geometry.spherical.computeDistanceBetween(position, lastPosition) > 175) {
+            markers.push(new google.maps.Marker({ 
+              position: position,
+              animation: google.maps.Animation.DROP,
+              icon: new google.maps.MarkerImage(getUrl('60x60', position), new google.maps.Size(60, 45)),
+              map: map
+            }));
+            lastPosition = position;
+          }
+          if (marker) marker.setPosition(position);
+        }
+
+        if (!marker) {
+          marker = new google.maps.Marker({
+            map: map,
+            draggable: false,
+            position: position,
+            //icon: new google.maps.MarkerImage('http://chart.apis.google.com/chart?chst=d_map_pin_letter&chld=%E2%80%A2|55bbd9'),
+            icon: new google.maps.MarkerImage('assets/car.png'),
+            zIndex: google.maps.Marker.MAX_ZINDEX
+          });
+        }
+      }
+
+      this.setPano = function(panoId, callback) {
+        streetviewService.getPanoramaById(panoId, function(data) {
+          applyPano(data);
+          if (callback) callback(data);
+        });
+      };
+
+      this.setPosition = function(latLng, callback) {
+        getClosestPano(latLng, function(data, found) {
+          if (found) {
+            applyPano(data);
+            if (callback) callback(position);
+          }
+          else
+            alert('Place not found!');
+        });
+      };
+
+      this.getPosition = function() {
+        return position;
+      };
+
+      this.setPov = function(p0v) {
+        pov = p0v;
+        if (pano) pano.setPov(p0v);
+      };
+
+      this.getPov = function() {
+        return pov;
+      };
+
+      this.setHeading = function(heading) {
+        pov.heading = heading;
+        self.setPov(pov);
+      }
+
+      this.getLinks = function() {
+        return links;
+      };
+
+      // Directions
+
+      function getNextLink(incognito) {
+        var link = null;
+        var minDelta = 360;
+
+        //var heading = posmod(pov.heading, 360);
+        var heading = posmod(nextHeading, 360);
+        if (debug) console.log('Heading: ' + heading);
+        for (var i in links) {
+          var delta = posmod(links[i].heading - heading, 360);
+          if (delta > 180) delta = 360 - delta;
+          if (debug) console.log(links[i].heading + ', ' + links[i].description + ' with delta: ' + delta);
+          if (delta < minDelta) {
+            link = links[i];
+            minDelta = delta;
+          } 
+        }
+        
+        if (!link || !link.pano || panoHistory[link.pano]) {
+          return null;
+        }
+        else {
+          if (!incognito) panoHistory[link.pano] = true;
+          if (debug) console.log('Found: ' + link.heading + ', ' + link.description + ' with score: ' + minDelta);
+          return link;
+        }
+      }
+
+      function moveNext(data) {
+          //console.log(endPosition, position, google.maps.geometry.spherical.computeDistanceBetween(endPosition, position));
+          if (google.maps.geometry.spherical.computeDistanceBetween(endPosition, position) <= 25) {
+            if (recording)
+              self.stopRecording();
+            else
+              self.stopMoving();
+          }
+          else {
+            if (moving)
+              self.move(true)
+          }
+      }
+
+      this.move = function(force) {
+        if (moving || force) {
+          var link = getNextLink();
+          if (link) {
+            self.setHeading(link.heading);
+            self.setPano(link.pano, moveNext);
+          }
+          else {
+            if (debug) console.log('Jump around!');
+            steps.shift();
+            self.setPosition(safeJump, moveNext);
+          }
+        }
+      };
+
+      this.setStartPosition = function(latLng, callback) {
+        self.setPosition(latLng, function(pos) {
+          startPosition = pos;
+          map.setCenter(startPosition);
+          map.setZoom(18);
+          //document.getElementById('startAddress').className += ' preview';
+          //document.getElementById('startAddress').style.backgroundImage = 'url("' + getUrl('180x200') + '")';
+          if (callback) callback(pos);
+        });
+      };
+
+      this.setEndPosition = function(latLng) {
+        if (!startPosition) throw "Start Position not defined";
+
+        getClosestPano(latLng, function(data, found) {
+          if (found) {
+            endPosition = data.location.latLng;
+            //document.getElementById('endAddress').className += ' preview';
+            //document.getElementById('endAddress').style.backgroundImage = 'url("' + getUrl('180x200', endPosition) + '")';
+
+
+            var bound = new google.maps.LatLngBounds();
+            var offset = 0.007;
+            var startPos = new google.maps.LatLng(startPosition.lat(), startPosition.lng() + offset)
+            bound = bound.extend(startPos);
+            var endPos = new google.maps.LatLng(endPosition.lat(), endPosition.lng() + offset)
+            bound = bound.extend(endPos);
+            map.fitBounds(bound);
+            if (map.getZoom() > 15) map.setZoom(15);
+
+            var request = {
+                origin: startPosition,
+                destination: endPosition,
+                travelMode: google.maps.DirectionsTravelMode.DRIVING
+            };
+            directionsService.route(request, function(response, status) {
+              if (status == google.maps.DirectionsStatus.OK) {
+                var myRoute = response.routes[0].legs[0];
+                if (myRoute.distance.value < 15000) {
+                  // Reset
+                  while(markers.length > 0) {
+                    var marker = markers.pop();
+                    marker.setMap(null);
+                  }
+                  steps = [];
+                  if (marker) {
+                    marker.setMap(null);
+                    marker = null;
+                  }
+                  // Set
+                  var markerSet = {};
+                  var count = 0;
+                  for (var i = 0; i < myRoute.steps.length; i++) {
+                    for(var j = 0; j < myRoute.steps[i].lat_lngs.length; j++) {
+                      var current = myRoute.steps[i].lat_lngs[j];
+                      var id = current.lat() + '-' + current.lng();
+                      if (!markerSet[id]) {
+                        if (debug) 
+                          markers.push(new google.maps.Marker({ 
+                            position: current,
+                            icon: new google.maps.MarkerImage('http://chart.apis.google.com/chart?chst=d_map_pin_letter&chld=' + steps.length + '|ff7c70'),
+                            map: map }));
+                        else {
+                          /*if (!lastPosition || (i + 1 == myRoute.steps.length && j + 1 == myRoute.steps[i].lat_lngs.length) || google.maps.geometry.spherical.computeDistanceBetween(current, lastPosition) > 250) {
+                              markers.push(new google.maps.Marker({ 
+                                position: current,
+                                icon: new google.maps.MarkerImage(getUrl('120x100', current), new google.maps.Size(120, 85)),
+                                map: map
+                              }));
+                              lastPosition = current;
+                            }*/
+                        }
+                        steps.push(current);
+                        markerSet[id] = true;                      
+                      }
+                    }
+                  }                    
+                  directionsDisplay.setDirections(response);
+                  updateNextHeading();
+                  self.setHeading(nextHeading);
+                  smoothHeading = getNextLink(true).heading;
+
+                  // Display Drive button
+                  document.getElementById('startRecording').style.opacity = 1;
+                  document.getElementById('directionsPanel').style.opacity = 1;
+                }
+                else 
+                  alert(Math.round(myRoute.distance.value / 1000) + ' kilometers? I\'ll die before the end.');
+              }
+            });
+          }
+          else
+            alert('Place not found!');
+        });
+      };
+
+      // Interface
+      this.startMoving = function() {
+        moving = true;
+        self.move();
+        if (debug) {
+          document.getElementById('startMoving').style.display = 'none';
+          document.getElementById('stopMoving').style.display = 'inline-block';
+        }
+      };
+
+      this.stopMoving = function() {
+        moving = false;
+        if (debug) {
+          document.getElementById('startMoving').style.display = 'inline-block';
+          document.getElementById('stopMoving').style.display = 'none';
+        }
+      };
+
+      this.startRecording = function() {
+        recording = true;
+        records = [];
+        document.getElementById('startRecording').style.display = 'none';
+        document.getElementById('stopRecording').style.display = 'inline-block';
+        if (!moving) self.startMoving();
+      };
+
+      this.stopRecording = function() {
+        if (moving) self.stopMoving();
+        recording = false;
+        document.getElementById('loading').style.display = 'inline-block';
+        document.getElementById('stopRecording').style.display = 'none';
+
+        document.getElementById('records').value = JSON.stringify(records);
+        document.getElementById('form').action = 'trip/' + location.hash.substring(1).replace(/ /g, '.');
+        document.getElementById('form').submit();
+      };
+
+      // Init
+      (function init() {
+        streetviewService = new google.maps.StreetViewService();
+        directionsService = new google.maps.DirectionsService();
+        directionsDisplay = new google.maps.DirectionsRenderer({ draggable: false, preserveViewport: true });
+        directionsDisplay.setMap(map);
+        directionsDisplay.setPanel(document.getElementById('directionsPanel'));
+
+        marker1 = new google.maps.Marker({
+          map: map,
+          icon: new google.maps.MarkerImage('http://chart.apis.google.com/chart?chst=d_map_pin_letter&chld=%E2%80%A2|F23F87'),
+          zIndex: google.maps.Marker.MAX_ZINDEX - 2
+        });
+        marker2 = new google.maps.Marker({
+          map: map,
+          icon: new google.maps.MarkerImage('http://chart.apis.google.com/chart?chst=d_map_pin_letter&chld=%E2%80%A2|F2BC3F'),
+          zIndex: google.maps.Marker.MAX_ZINDEX - 1
+        });
+      })();
+    }
+    </script>
+  </body>
+</html>
