@@ -142,12 +142,12 @@
     <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=false&language=en-US"></script>
     <script>
       var apiUrl = 'http://maps.googleapis.com/maps/api/streetview';
-      var apiUrlParams = 'location={lat},{lng}&heading={heading}&size={size}&fov=110&sensor=false&key={key}';
+      var apiKey = 'AIzaSyB6MKMJ9iXY3G4hcv9Oixt0FedLlCdxHeE';
+      var apiUrlParams = 'location={lat},{lng}&heading={heading}&size={size}&fov=110&sensor=false&key=' + apiKey;
       var geocoder, map, panorama, panoramaDisplay, url;
       var moving = false;
       var recording = false;
       var delay = 1000;
-      var heading = 0;
       var debug = location.href.indexOf('debug') !== -1;
       var panoEnabled = location.href.indexOf('pano') !== -1;
 
@@ -246,19 +246,20 @@
         return value;
       };
 
-      function getUrl(size, pos, h) { 
-        var key = 'AIzaSyB6MKMJ9iXY3G4hcv9Oixt0FedLlCdxHeE';
+      function getUrl(size, pos) { 
         var p = pos ? pos : position;
         var lat = p.lat();
         var lng = p.lng();
         var s = size ? size : '400x200';
-        //smoothHeading = Math.floor(pov.heading * 0.7 + smoothHeading * 0.3) + (h ? h : 0);
-        smoothHeading = pov.heading + (h ? h : 0);
+        var heading = pov.heading;
+        if (!pos) {
+          smoothHeading = Math.floor(pov.heading * 0.7 + smoothHeading * 0.3);
+          heading = smoothHeading;
+        } 
         var params = apiUrlParams.replace('{lat}', lat)
                                 .replace('{lng}', lng)
-                                .replace('{heading}', smoothHeading)
-                                .replace('{size}', s)
-                                .replace('{key}', key);
+                                .replace('{heading}', heading)
+                                .replace('{size}', s);
         return apiUrl + '?' + params;
       }
 
@@ -317,7 +318,6 @@
             map: map,
             draggable: false,
             position: position,
-            //icon: new google.maps.MarkerImage('http://chart.apis.google.com/chart?chst=d_map_pin_letter&chld=%E2%80%A2|55bbd9'),
             icon: new google.maps.MarkerImage('assets/car.png'),
             zIndex: google.maps.Marker.MAX_ZINDEX
           });
@@ -370,7 +370,6 @@
         var link = null;
         var minDelta = 360;
 
-        //var heading = posmod(pov.heading, 360);
         var heading = posmod(nextHeading, 360);
         if (debug) console.log('Heading: ' + heading);
         for (var i in links) {
@@ -394,7 +393,6 @@
       }
 
       function moveNext(data) {
-          //console.log(endPosition, position, google.maps.geometry.spherical.computeDistanceBetween(endPosition, position));
           if (google.maps.geometry.spherical.computeDistanceBetween(endPosition, position) <= 25) {
             if (recording)
               self.stopRecording();
@@ -427,8 +425,6 @@
           startPosition = pos;
           map.setCenter(startPosition);
           map.setZoom(18);
-          //document.getElementById('startAddress').className += ' preview';
-          //document.getElementById('startAddress').style.backgroundImage = 'url("' + getUrl('180x200') + '")';
           if (callback) callback(pos);
         });
       };
@@ -439,9 +435,6 @@
         getClosestPano(latLng, function(data, found) {
           if (found) {
             endPosition = data.location.latLng;
-            //document.getElementById('endAddress').className += ' preview';
-            //document.getElementById('endAddress').style.backgroundImage = 'url("' + getUrl('180x200', endPosition) + '")';
-
 
             var bound = new google.maps.LatLngBounds();
             var offset = 0.007;
@@ -484,16 +477,6 @@
                             position: current,
                             icon: new google.maps.MarkerImage('http://chart.apis.google.com/chart?chst=d_map_pin_letter&chld=' + steps.length + '|ff7c70'),
                             map: map }));
-                        else {
-                          /*if (!lastPosition || (i + 1 == myRoute.steps.length && j + 1 == myRoute.steps[i].lat_lngs.length) || google.maps.geometry.spherical.computeDistanceBetween(current, lastPosition) > 250) {
-                              markers.push(new google.maps.Marker({ 
-                                position: current,
-                                icon: new google.maps.MarkerImage(getUrl('120x100', current), new google.maps.Size(120, 85)),
-                                map: map
-                              }));
-                              lastPosition = current;
-                            }*/
-                        }
                         steps.push(current);
                         markerSet[id] = true;                      
                       }
