@@ -172,6 +172,7 @@ function Driver(debug, debugStreetView) {
   var onDirections = function() {
     // Invalidate
     document.body.className = '';
+    records = [];
 
     // Set Display
     var myRoute = directions.directions.routes[0].legs[0];
@@ -247,7 +248,7 @@ function Driver(debug, debugStreetView) {
       if (status == google.maps.DirectionsStatus.OK) {
         var myRoute = response.routes[0].legs[0];
         
-        document.getElementById('directions').innerText = '';
+        document.getElementById('directions').textContent = '';
         document.getElementById('directions').style.opacity = 1;
         directions.setDirections(response);
       }
@@ -295,7 +296,7 @@ function Driver(debug, debugStreetView) {
     document.getElementById('loading').style.display = 'inline-block';
     document.getElementById('stop').style.display = 'none';
     document.getElementById('records').value = JSON.stringify(records);
-    document.getElementById('form').action = 'trip/' + location.hash.substring(1);
+    document.getElementById('form').action = 'trip/' + location.hash.substring(1).replace(/➔|%94/, '-');
     document.getElementById('form').submit();
   };
 
@@ -367,11 +368,10 @@ function Driver(debug, debugStreetView) {
 
     // Auto Start
     var hash = location.hash.replace(/\./g, ' ').substring(1);
-    var addrs = hash.split(' ➔ ');
-    if (addrs.length != 2) addrs = hash.split(' %94 ');
+    var addrs = hash.split(/➔|%94/); // damnit safari
     if (addrs.length == 2) {
-      document.getElementById('startAddress').value = addrs[0];
-      document.getElementById('endAddress').value = addrs[1];
+      document.getElementById('startAddress').value = addrs[0].trim();
+      document.getElementById('endAddress').value = addrs[1].trim();
       self.search();
     }
   }

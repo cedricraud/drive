@@ -16,10 +16,17 @@ function Drive () {
 		// Setup App
 		app = express();
 		app.use(express.urlencoded());
-		app.use('/assets', express.static(__dirname + '/assets'));
 		app.use(express.limit('3mb'));
+		app.use(app.router);
+		app.use('/assets', express.static(__dirname + '/assets'));
 
 		// Routes
+		app.use(function(err, req, res, next){ // Exception
+			log(err);
+			res.status(err.status || 500);
+			res.end('Internal Error.');
+		});
+
 		app.get('/', function(req, res){
 			res.sendfile(__dirname + '/index.html');
 		});
@@ -28,7 +35,7 @@ function Drive () {
 			log(id, 'Query trip: ' + req.params.trip.replace(/\./g, ' '));
 			if (fs.existsSync(__dirname + '/exports/' + id + '.gif'))
 				sendGif(req, res, id, true);
-			else if (req.body.records)
+			else if (req.body && req.body.records)
 				downThemAll(req, res, id, JSON.parse(req.body.records));
 			else
 				res.redirect(301, '/');
