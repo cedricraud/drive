@@ -2,4 +2,4 @@
 .jshintrc
 node_modules
 temp/*
-exports/*
+snippets.txt

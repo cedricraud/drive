@@ -6,9 +6,8 @@ var http = require('http'),
 	gm = require('gm'),
 	dateformat = require('dateformat');
 
-
 function Drive () {
-	"use strict";
+	'use strict';
 	var started = false;
 	var optimised = true; // convert to gif before saving (stats: 268jpg: optimised 13s, not optimised 31s)
 	var app;
@@ -18,7 +17,7 @@ function Drive () {
 		app = express();
 		app.use(express.urlencoded());
 		app.use('/assets', express.static(__dirname + '/assets'));
-		app.use(express.limit('2mb'));
+		app.use(express.limit('3mb'));
 
 		// Routes
 		app.get('/', function(req, res){
@@ -28,7 +27,7 @@ function Drive () {
 			var id = getId(req.params.trip);
 			log(id, 'Query trip: ' + req.params.trip.replace(/\./g, ' '));
 			if (fs.existsSync(__dirname + '/exports/' + id + '.gif'))
-				sendGif(req, res, id);
+				sendGif(req, res, id, true);
 			else if (req.body.records)
 				downThemAll(req, res, id, JSON.parse(req.body.records));
 			else
@@ -70,6 +69,7 @@ function Drive () {
 		}
 		for (var i = 0; i < 5; i++)
 			leechThemAll();
+		res.writeHead(200, { 'Content-Type': 'image/gif' }); // Make the browser wait!
 	};
 
 	var gify = function(req, res, id) {
@@ -77,16 +77,16 @@ function Drive () {
 		log(id, 'Generating gif');
 		exec('cd ' + __dirname + '/temp;' +
 			(optimised ? '' : 'mogrify -format gif ' + id + '*.jpg;') +
-			'gifsicle --delay=17 --method blend-diversity --colors 256 --loop ' + id + '*.gif > ../exports/' + filename +
+			'gifsicle --delay=20 --method blend-diversity --colors 256 --loop ' + id + '*.gif > ../exports/' + filename +
 			';rm ' + id + '*',
 			function(error, stdout, stderr) {
 				sendGif(req, res, id);
 		});
 	}
 
-	var sendGif = function(req, res, id) {
+	var sendGif = function(req, res, id, headers) {
 		var readStream = fs.createReadStream(__dirname + '/exports/' + id + '.gif');
-		res.writeHead(200, { 'Content-Type': 'image/gif' });
+		if (headers) res.writeHead(200, { 'Content-Type': 'image/gif' });
 		readStream.pipe(res);
 		log(id, 'Sending gif');
 	}
