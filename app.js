@@ -30,13 +30,18 @@ function Drive () {
 		app.get('/', function(req, res){
 			res.sendfile(__dirname + '/index.html');
 		});
-		app.all('/trip/:trip', function(req, res, next) {
-			var id = getId(req.params.trip);
-			log(id, 'Query trip: ' + req.params.trip.replace(/\./g, ' '));
+		app.all('/trip/*', function(req, res, next) {
+			var id = getId(req.params[0]);
+			log(id, 'Query trip: ' + req.params[0].replace(/\./g, ' '));
 			if (fs.existsSync(__dirname + '/exports/' + id + '.gif'))
 				sendGif(req, res, id, true);
-			else if (req.body && req.body.records)
-				downThemAll(req, res, id, JSON.parse(req.body.records));
+			else if (req.body && req.body.records) {
+				var records = JSON.parse(req.body.records);
+				if (records.length > 2)
+					downThemAll(req, res, id, records);
+				else
+					res.end('Not enough images.\nPlease drive a longer itinerary.');
+			}
 			else
 				res.redirect(301, '/');
 		});

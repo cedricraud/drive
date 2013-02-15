@@ -123,7 +123,6 @@ function Driver(debug, debugStreetView) {
         lastPos = pos;
       }
       map.setCenter(pos);
-      if (map.getZoom() < 16) map.setZoom(16);
     }
 
     // Street View (debug)
@@ -285,6 +284,7 @@ function Driver(debug, debugStreetView) {
   this.start = function() {
     moving = true;
     self.move();
+    if (map.getZoom() < 16) map.setZoom(16);
     document.getElementById('start').style.opacity = 0;
     document.getElementById('start').style.display = 'none';
     document.getElementById('stop').style.display = 'inline-block';
@@ -296,7 +296,7 @@ function Driver(debug, debugStreetView) {
     document.getElementById('loading').style.display = 'inline-block';
     document.getElementById('stop').style.display = 'none';
     document.getElementById('records').value = JSON.stringify(records);
-    document.getElementById('form').action = 'trip/' + location.hash.substring(1).replace(/➔|%94/, '-');
+    document.getElementById('form').action = 'trip/' + encodeURIComponent(location.hash.substring(1));
     document.getElementById('form').submit();
   };
 
