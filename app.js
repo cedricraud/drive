@@ -10,6 +10,7 @@ function Drive () {
 	'use strict';
 	var started = false;
 	var optimised = true; // convert to gif before saving (stats: 268jpg: optimised 13s, not optimised 31s)
+	var keepTemp = false;
 	var app;
 
 	var init = function() {
@@ -60,15 +61,16 @@ function Drive () {
 				http.get(path, function(fileres) {
 					var filename = id + '-' + zeroPad(index, 1000) + '.jpg';
 					var p = __dirname + '/temp/';
-					fileres.on("end", function() { --remaining; leechThemAll() });
 
 					if (optimised) { // Use a GraphicsMagick stream
 						gm(fileres, filename).write(p + filename.replace('jpg', 'gif'), function (err) {
 							if (err) console.log(err);
+							else { --remaining; leechThemAll(); }
 						});
 					}
 					else {
 						var stream = fs.createWriteStream(p + filename);
+						fileres.on("end", function() { --remaining; leechThemAll() });
 						fileres.pipe(stream);
 					}
 				}).on('error', function(e) {
@@ -89,8 +91,8 @@ function Drive () {
 		log(id, 'Generating gif');
 		exec('cd ' + __dirname + '/temp;' +
 			(optimised ? '' : 'mogrify -format gif ' + id + '*.jpg;') +
-			'gifsicle --delay=20 --method blend-diversity --colors 256 --loop ' + id + '*.gif > ../exports/' + filename +
-			';rm ' + id + '*',
+			'gifsicle --delay=20 --method blend-diversity --colors 256 --loop ' + id + '*.gif > ../exports/' + filename + ';' +
+			(!keepTemp ? 'rm ' + id + '*' : ''),
 			function(error, stdout, stderr) {
 				sendGif(req, res, id);
 		});

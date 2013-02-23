@@ -269,10 +269,11 @@ function Driver(debug, debugStreetView) {
           setPano(nextLink.pano, once ? null : function() { self.move() });
         }
         else {
-          if (debug) console.log('Jump around!');
-          if (steps.length > 1) {
-            steps.shift();
-            setPos(steps[0], function() { self.move(once) });
+          // If no path if found, jump to the next step
+          if (steps.length > 0) {
+            var step = steps.shift();
+            setPos(steps.length === 0 ? step : steps[0], function() { self.move(once) });
+            if (debug) console.log('Jump around!');
           }
           else
             self.move(once);
