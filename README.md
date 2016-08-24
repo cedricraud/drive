@@ -5,8 +5,6 @@ Choose an start address, a destination and push Start: the app will fetch the Go
 
 ![Screenshot](https://raw.github.com/cedricraud/Drive/master/assets/screen.png)
 
-You can try the app [here](http://drive.spyc.am).
-
 
 ## Making of
 The web app lives in a client (drive.js) and a server (app.js).
